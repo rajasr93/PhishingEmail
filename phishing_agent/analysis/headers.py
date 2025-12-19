@@ -1,8 +1,8 @@
 def analyze_headers(headers_dict):
+    """Checks for Reply-To mismatches and Auth failures."""
     risks = []
     
     # 1. Reply-To Mismatch
-    # Simple check: Does "From" domain match "Reply-To" domain?
     from_addr = headers_dict.get('From', '')
     reply_to = headers_dict.get('Reply-To', '')
     
@@ -14,7 +14,7 @@ def analyze_headers(headers_dict):
                 "detail": f"From: {from_addr} | Reply-To: {reply_to}"
             })
 
-    # 2. Auth Check (Mock logic - in prod, parse Authentication-Results header)
+    # 2. Auth Check (SPF/DKIM/DMARC signals) [cite: 50]
     auth_results = headers_dict.get('Authentication-Results', '').lower()
     if 'spf=fail' in auth_results or 'dkim=fail' in auth_results:
         risks.append({

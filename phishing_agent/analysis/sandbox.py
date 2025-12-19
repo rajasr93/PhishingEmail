@@ -1,0 +1,30 @@
+import socket
+import requests
+import urllib.parse
+from config import DNS_TIMEOUT, HTTP_TIMEOUT
+
+def check_dns_redirects(url):
+    """Checks DNS existence and redirect depth[cite: 30, 49]."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        domain = parsed.netloc
+        if not domain: return None
+
+        # 1. DNS Check
+        try:
+            socket.gethostbyname(domain)
+        except socket.gaierror:
+            return {"severity": 20, "reason": "Unresolvable Domain", "detail": domain}
+
+        # 2. HTTP Redirect Check
+        try:
+            # Enforcing hard timeouts 
+            response = requests.head(url, timeout=HTTP_TIMEOUT, allow_redirects=True)
+            if len(response.history) > 2:
+                return {"severity": 50, "reason": "Excessive Redirects", "detail": f"Depth: {len(response.history)}"}
+        except requests.RequestException:
+            pass 
+
+    except Exception:
+        pass
+    return None
