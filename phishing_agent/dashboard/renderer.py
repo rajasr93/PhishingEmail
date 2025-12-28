@@ -56,6 +56,23 @@ def render_dashboard(results, output_dir="dashboard"):
                 <div class="meta">Generated: """ + timestamp + """</div>
             </header>
             
+            <!-- Legend / Methodology -->
+            <div style="background:#f9fafb; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #eaecf0; font-size:13px; color:#475467;">
+                <div style="font-weight:600; margin-bottom:8px;">🔍 Verdict Methodology</div>
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                    <div><span class="badge PHISHING">PHISHING</span> <strong>Score ≥ 50</strong>: Critical threats (e.g., Auth Fail + Urgency).</div>
+                    <div><span class="badge SUSPICIOUS">SUSPICIOUS</span> <strong>Score ≥ 30</strong>: Potential threats (e.g., Reply-To mismatch).</div>
+                    <div><span class="badge SAFE">SAFE</span> <strong>Score &lt; 30</strong>: Clean emails.</div>
+                </div>
+                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #eaecf0;">
+                    <strong>Scoring Rules:</strong> 
+                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">Reply-To Mismatch (+30)</span>
+                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">High Urgency (+40)</span>
+                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">URL Shortener (+20)</span>
+                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">Auth Fail (Variable)</span>
+                </div>
+            </div>
+            
             <table>
                 <thead>
                     <tr>

@@ -1,9 +1,0 @@
---- STARTING MANUAL AUTH ---
-Please look for a URL below or in a browser window.
-
-
---- CLICK THIS URL TO LOGIN ---
-https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=661673048442-0fo7j0uunvf665shgcloe0rm646k8v0b.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.modify&state=ctO1wt6dVWXQiaA25Va1PVt5K3In4G&prompt=consent&access_type=offline
--------------------------------
-
-Please visit this URL to authorize this application: https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=661673048442-0fo7j0uunvf665shgcloe0rm646k8v0b.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.modify&state=yjcceObgpafn4O659aZZ9Y56nWkQa8&access_type=offline
