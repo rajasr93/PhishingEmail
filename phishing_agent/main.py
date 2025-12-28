@@ -15,7 +15,7 @@ from dashboard.server import serve_dashboard
 # Import Production Modules
 from processing.queue_manager import init_db, fetch_next_job, update_job_status, fetch_all_results
 from processing.ingestion import GmailIngestor
-# import test_auth # Removed for API migration 
+from analysis.structural import extract_urls
 
 # Initialize Logging
 logger = setup_logging()
@@ -63,6 +63,7 @@ def worker():
                 "subject": headers.get("Subject", "No Subject"),
                 "reply_to": headers.get("Reply-To"),
                 "body": body if body else "",
+                "urls": extract_urls(body) if body else [],
                 "auth_headers": _parse_auth_header(headers.get("Authentication-Results", ""))
             }
             

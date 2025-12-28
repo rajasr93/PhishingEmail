@@ -57,19 +57,47 @@ def render_dashboard(results, output_dir="dashboard"):
             </header>
             
             <!-- Legend / Methodology -->
-            <div style="background:#f9fafb; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #eaecf0; font-size:13px; color:#475467;">
-                <div style="font-weight:600; margin-bottom:8px;">🔍 Verdict Methodology</div>
-                <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                    <div><span class="badge PHISHING">PHISHING</span> <strong>Score ≥ 50</strong>: Critical threats (e.g., Auth Fail + Urgency).</div>
-                    <div><span class="badge SUSPICIOUS">SUSPICIOUS</span> <strong>Score ≥ 30</strong>: Potential threats (e.g., Reply-To mismatch).</div>
-                    <div><span class="badge SAFE">SAFE</span> <strong>Score &lt; 30</strong>: Clean emails.</div>
+            <div style="background:#f9fafb; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #eaecf0; color:#475467;">
+                <h3 style="margin-top:0; font-size:16px; color:#101828;">🔍 How Scores are Calculated</h3>
+                
+                <div style="display:flex; gap:30px; margin-bottom:20px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; margin-bottom:10px; color:#344054;">1. Verdict Thresholds</div>
+                        <div style="font-size:13px; line-height:1.6;">
+                            <div style="margin-bottom:4px;"><span class="badge PHISHING">PHISHING</span> <strong>Score ≥ 50</strong></div>
+                            <div style="margin-bottom:4px;"><span class="badge SUSPICIOUS">SUSPICIOUS</span> <strong>Score ≥ 30</strong></div>
+                            <div><span class="badge SAFE">SAFE</span> <strong>Score &lt; 30</strong></div>
+                        </div>
+                    </div>
+                    
+                    <div style="flex:2;">
+                        <div style="font-weight:600; margin-bottom:10px; color:#344054;">2. Risk Rules (Points Added)</div>
+                        <table style="width:100%; font-size:13px;">
+                            <tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:4px 0;"><strong>High Urgency</strong></td>
+                                <td style="color:#b42318; font-weight:bold;">+40 pts</td>
+                                <td style="color:#667085;">Phrases like "Immediate Action Required"</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:4px 0;"><strong>Reply-To Mismatch</strong></td>
+                                <td style="color:#b54708; font-weight:bold;">+30 pts</td>
+                                <td style="color:#667085;">Sender email ≠ Reply-To email</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:4px 0;"><strong>URL Shortener</strong></td>
+                                <td style="color:#b54708; font-weight:bold;">+20 pts</td>
+                                <td style="color:#667085;">Hidden destination (e.g., bit.ly, short.ly)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:4px 0;"><strong>Auth Failure</strong></td>
+                                <td style="color:#b42318; font-weight:bold;">Variable</td>
+                                <td style="color:#667085;">SPF/DKIM/DMARC failure</td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #eaecf0;">
-                    <strong>Scoring Rules:</strong> 
-                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">Reply-To Mismatch (+30)</span>
-                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">High Urgency (+40)</span>
-                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">URL Shortener (+20)</span>
-                    <span style="background:#fff; border:1px solid #ddd; padding:2px 6px; border-radius:4px; margin:0 4px;">Auth Fail (Variable)</span>
+                <div style="font-size:12px; color:#667085; background:#f2f4f7; padding:10px; border-radius:6px;">
+                    <strong>💡 Worst-Link Logic:</strong> If an email fails Authentication AND uses High Urgency, score is elevated to <strong>85 (Critical Phishing)</strong> automatically.
                 </div>
             </div>
             
