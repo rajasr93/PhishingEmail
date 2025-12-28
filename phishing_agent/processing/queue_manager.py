@@ -88,6 +88,12 @@ def update_job_status(job_id, status, analysis_result=None):
                 # Also set risk_score if available
                 if 'score' in analysis_result:
                     item['risk_score'] = analysis_result['score']
+            
+            # PRIVACY: Scrub raw content once processing is complete
+            if status == "completed":
+                item['body'] = None
+                item['headers'] = None
+
             updated = True
             break
     

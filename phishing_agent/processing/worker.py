@@ -1,63 +1,67 @@
-import time
 import json
-import logging
-from processing.queue_manager import fetch_next_job, mark_job_complete, update_status
+from processing.queue_manager import fetch_next_job, update_job_status
 from agents.orchestrator import Orchestrator
+from analysis.structural import extract_urls
+import asyncio
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - [Worker] - %(message)s')
-logger = logging.getLogger(__name__)
-
-def run_worker():
+def run_worker(logger, shutdown_event):
     """
-    v1 Runtime Loop: Async execution.
-    Fetches one email at a time from the persistent queue.
+    v2 Runtime Loop: Async execution with graceful shutdown.
     """
-    import asyncio
     
     async def async_worker_loop():
         logger.info("Service started. Waiting for jobs...")
         
-        # Initialize the Orchestrator ONCE before the while loop starts
+        # Initialize the Orchestrator
         orchestrator = Orchestrator(logger)
         
-        while True:
+        while not shutdown_event.is_set():
             # 1. Fetch next PENDING job (Consumer)
+            # This is sync I/O, technically blocking but fast
             job = fetch_next_job()
             
             if not job:
-                # Use async sleep to avoid blocking loop (though we're the only thing running here)
-                await asyncio.sleep(1) 
+                await asyncio.sleep(2) 
                 continue
     
-            email_id, raw_headers, raw_body = job['id'], job['headers'], job['body']
+            email_id = job['id']
+            headers = job['headers']
+            body = job['body']
             
             try:
                 logger.info(f"Processing {email_id}...")
                 
-                # 2. Deserialize Data
-                headers = json.loads(raw_headers) if isinstance(raw_headers, str) else raw_headers
-                
+                # 2. Deserialize Data if needed
+                if isinstance(headers, str):
+                    try:
+                        headers = json.loads(headers)
+                    except json.JSONDecodeError:
+                        headers = {}
+
                 email_data = {
                     "id": email_id,
                     "headers": headers,
-                    "body": raw_body
+                    "body": body,
+                    "urls": extract_urls(body) if body else []
+                    # Auth headers handling is now inside TechnicalAgent via headers
                 }
     
                 # 3. Execute Analysis Pipeline
+                update_job_status(email_id, "processing")
                 report = await orchestrator.process_email(email_data)
                 
                 # 4. Save Results
-                # mark_job_complete expects just the id and fields, assumes we imported it?
-                # The imports in this file were incomplete in the view earlier, 
-                # let's assume update_job_status/mark_job_complete logic is imported or available.
-                # Actually main.py used update_job_status. Here we imported mark_job_complete.
-                # Let's trust the imports existing in the file were sufficient or correct them if error.
-                mark_job_complete(email_id, report['score'], report)
+                # Enhance report with metadata for dashboard
+                report['sender'] = headers.get("From", "Unknown") if isinstance(headers, dict) else "Unknown"
+                report['subject'] = headers.get("Subject", "No Subject") if isinstance(headers, dict) else "No Subject"
+
+                update_job_status(email_id, "completed", report)
                 logger.info(f"Finished {email_id}. Risk: {report['score']} ({report['primary_reason']})")
                 
             except Exception as e:
-                logger.error(f"Failed to process {email_id}: {e}")
-                update_status(email_id, "FAILED")
+                logger.error(f"Failed to process {email_id}: {e}", exc_info=True)
+                update_job_status(email_id, "FAILED")
+                
+        logger.info("Worker loop stopping...")
 
     asyncio.run(async_worker_loop())

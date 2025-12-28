@@ -1,5 +1,5 @@
 from .base_agent import BaseAgent
-from analysis.ml_reasoning import infer_intent
+
 import torch
 
 class SemanticAgent(BaseAgent):
@@ -33,7 +33,7 @@ class SemanticAgent(BaseAgent):
         body = email_data.get('body', "")
 
         # 1. Fast Keyword Check
-        intent_res = infer_intent(body)
+        intent_res = self._infer_intent(body)
         if intent_res:
             risk_score += intent_res.get('severity', 0)
             reasons.append(f"Keyword: {intent_res.get('reason')}")
@@ -68,3 +68,17 @@ class SemanticAgent(BaseAgent):
             "risk_score": min(risk_score, 100),
             "reasons": reasons
         }
+
+    def _infer_intent(self, text):
+        """Heuristic check for Urgency and BEC patterns."""
+        text = text.lower() if text else ""
+        urgency_words = ['urgent', 'immediate', '24 hours', 'suspend']
+        credential_words = ['password', 'login', 'verify account']
+        
+        if any(w in text for w in urgency_words):
+            return {"severity": 40, "reason": "Urgency Detected", "detail": "High urgency keywords"}
+        
+        if any(w in text for w in credential_words):
+            return {"severity": 40, "reason": "Credential Request", "detail": "Login keywords"}
+            
+        return None

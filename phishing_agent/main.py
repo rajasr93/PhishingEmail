@@ -22,80 +22,23 @@ logger = setup_logging()
 analyzer = Orchestrator(logger)
 running = True
 
-def _parse_auth_header(auth_str):
-    """Simple parser to convert Auth-Results string to dict for the analysis module"""
-    res = {}
-    if not auth_str: return res
-    auth_str = auth_str.lower()
-    if "spf=pass" in auth_str: res['spf'] = "pass"
-    elif "spf=fail" in auth_str: res['spf'] = "fail"
-    
-    if "dkim=pass" in auth_str: res['dkim'] = "pass"
-    elif "dkim=fail" in auth_str: res['dkim'] = "fail"
-    
-    if "dmarc=pass" in auth_str: res['dmarc'] = "pass"
-    elif "dmarc=fail" in auth_str: res['dmarc'] = "fail"
-    return res
 
-def worker():
-    logger.info("Worker thread started. Polling JSON Queue for jobs...")
-    import asyncio
-    
-    async def async_worker_loop():
-        while running:
-            try:
-                # 1. Fetch next pending job (sync function, returns dictionary or None)
-                # fetch_next_job reads a file, so it blocks. 
-                # ideally we wrap it, but it's fast enough for now or we use run_in_executor
-                job = fetch_next_job() 
-                
-                if not job:
-                    time.sleep(2)
-                    continue
-                    
-                email_id = job['id']
-                headers = job['headers']
-                body = job['body']
-    
-                logger.info(f"Worker picked up {email_id}...")
-                
-                # Ensure headers is a dict
-                if isinstance(headers, str):
-                    try:
-                        headers = json.loads(headers)
-                    except json.JSONDecodeError:
-                        logger.error(f"Failed to parse headers for {email_id}")
-                        headers = {}
-                
-                email_data = {
-                    "id": email_id,
-                    "headers": headers,
-                    "from": headers.get("From", "Unknown"),
-                    "subject": headers.get("Subject", "No Subject"),
-                    "reply_to": headers.get("Reply-To"),
-                    "body": body if body else "",
-                    "urls": extract_urls(body) if body else [],
-                    "auth_headers": _parse_auth_header(headers.get("Authentication-Results", ""))
-                }
-                
-                # 2. Analyze (ASYNC call)
-                update_job_status(email_id, "processing")
-                result = await analyzer.process_email(email_data)
-                
-                # Enhance result with display metadata
-                result['sender'] = email_data['from']
-                result['subject'] = email_data['subject']
-                
-                # 3. Save Result
-                update_job_status(email_id, "completed", result)
-                logger.info(f"Analysis Complete {email_id} => Score: {result['score']}")
-                
-            except Exception as e:
-                logger.error(f"Worker Error: {e}", exc_info=True)
-                time.sleep(2)
 
-    # Run the async loop
-    asyncio.run(async_worker_loop())
+from processing.worker import run_worker
+
+def worker_thread_wrapper():
+    """Wrapper to run the async worker in a thread with the global shutdown event"""
+    # Create an event-like object or use a threading.Event if we want true signaling
+    # For now, we reuse the 'running' global via a lambda or simple wrapper?
+    # Actually, we need to pass a threading.Event. 
+    # Let's change 'running' to an Event in main() or just wrap it here.
+    
+    # Adapt simple bool 'running' to Event for compatibility
+    class CryptoShutdownEvent:
+        def is_set(self):
+            return not running
+            
+    run_worker(logger, CryptoShutdownEvent())
 
 def ingestion_service():
     """Runs the real Gmail API ingestion every 30 seconds"""
@@ -120,7 +63,7 @@ def main():
     init_db()
 
     # 2. Start Analysis Worker
-    worker_thread = threading.Thread(target=worker, name="Worker-1", daemon=True)
+    worker_thread = threading.Thread(target=worker_thread_wrapper, name="Worker-1", daemon=True)
     worker_thread.start()
 
     # 3. Start Ingestion Service
