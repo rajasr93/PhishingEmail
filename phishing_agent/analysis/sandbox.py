@@ -10,18 +10,21 @@ def check_dns_redirects(url):
         domain = parsed.netloc
         if not domain: return None
 
-        # 1. DNS Check
+        # Unified Check using Requests with strict timeout
+        # This implicitly checks DNS and avoids hanging on 'tarpits'
         try:
-            socket.gethostbyname(domain)
-        except socket.gaierror:
-            return {"severity": 30, "reason": "Unresolvable Domain", "detail": domain}
-
-        # 2. HTTP Redirect Check
-        try:
-            # Enforcing hard timeouts 
             response = requests.head(url, timeout=HTTP_TIMEOUT, allow_redirects=True)
             if len(response.history) > 2:
                 return {"severity": 50, "reason": "Excessive Redirects", "detail": f"Depth: {len(response.history)}"}
+        
+        except requests.exceptions.ConnectionError as e:
+            # Inspect error to distinguish DNS failure from other connection errors
+            err_str = str(e).lower()
+            if "name or service not known" in err_str or "getaddrinfo failed" in err_str:
+                return {"severity": 30, "reason": "Unresolvable Domain", "detail": domain}
+        except requests.exceptions.Timeout:
+            # Timeout means server is unresponsive or tarpitting; we fail safe/silent here
+            pass
         except requests.RequestException:
             pass 
 

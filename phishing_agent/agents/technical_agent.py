@@ -40,21 +40,33 @@ class TechnicalAgent(BaseAgent):
                 risk_score += sandbox_res.get('severity', 0)
                 reasons.append(f"URL: {sandbox_res.get('reason')} ({sandbox_res.get('detail')})")
 
+        # Cap score at 100
+        risk_score = min(risk_score, 100)
+
+        return {
+            "risk_score": risk_score,
+            "reasons": reasons
+        }
+
     def _parse_auth_header(self, auth_str):
-        """Simple parser to convert Auth-Results string to dict"""
+        """Robust parser to convert Auth-Results string to dict using Regex."""
         res = {}
         if not auth_str: return res
         auth_str = auth_str.lower()
         
-        if "spf=pass" in auth_str: res['spf'] = "pass"
-        elif "spf=fail" in auth_str: res['spf'] = "fail"
+        import re
+        # Regex to capture key=value pairs (e.g., spf=pass, dkim=fail)
+        # Handles optional spaces around equals sign
+        patterns = {
+            'spf': r"spf\s*=\s*([a-z]+)",
+            'dkim': r"dkim\s*=\s*([a-z]+)",
+            'dmarc': r"dmarc\s*=\s*([a-z]+)"
+        }
         
-        if "dkim=pass" in auth_str: res['dkim'] = "pass"
-        elif "dkim=fail" in auth_str: res['dkim'] = "fail"
-        
-        if "dmarc=pass" in auth_str: res['dmarc'] = "pass"
-        elif "dmarc=fail" in auth_str: res['dmarc'] = "fail"
-        elif "dmarc=quarantine" in auth_str: res['dmarc'] = "quarantine"
+        for key, pat in patterns.items():
+            match = re.search(pat, auth_str)
+            if match:
+                res[key] = match.group(1)
         
         return res
 
@@ -106,11 +118,3 @@ class TechnicalAgent(BaseAgent):
                 reasons.append(f"Reply-To Mismatch (From: {from_addr})")
                 
         return score, reasons
-
-        # Cap score at 100
-        risk_score = min(risk_score, 100)
-
-        return {
-            "risk_score": risk_score,
-            "reasons": reasons
-        }

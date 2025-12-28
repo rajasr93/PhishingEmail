@@ -37,6 +37,15 @@ class Orchestrator:
         # Additive Logic: Sum scores to reflect cumulative risk
         final_score = min(tech_score + sem_score, 100)
 
+        # 3. Worst-Link Logic (Cross-Correlated Elevation)
+        has_auth_fail = any("Validation Failed" in r or "Signature Invalid" in r or "Policy Violation" in r for r in tech_result['reasons'])
+        has_urgency = any("Urgency Detected" in r for r in sem_result['reasons'])
+        
+        if has_auth_fail and has_urgency:
+            if final_score < 85:
+                final_score = 85
+                final_reasons.insert(0, "CRITICAL: Auth Failure + High Urgency Detected")
+
         # 4. Determine Verdict
         verdict = "SAFE"
         if final_score >= 70:

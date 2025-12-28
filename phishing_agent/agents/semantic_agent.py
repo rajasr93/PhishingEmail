@@ -1,5 +1,5 @@
 from .base_agent import BaseAgent
-
+from analysis.text_processing import normalize_text, IntentScanner
 import torch
 
 class SemanticAgent(BaseAgent):
@@ -9,6 +9,7 @@ class SemanticAgent(BaseAgent):
         self.tokenizer = None
         self.model = None
         self.model_name = "ealvaradob/bert-finetuned-phishing"
+        self.intent_scanner = IntentScanner()
 
     def _load_model(self):
         if self.tokenizer is None or self.model is None:
@@ -31,12 +32,15 @@ class SemanticAgent(BaseAgent):
         risk_score = 0
         reasons = []
         body = email_data.get('body', "")
+        
+        # Normalize text for keyword scanning (removes obfuscation)
+        clean_text = normalize_text(body)
 
-        # 1. Fast Keyword Check
-        intent_res = self._infer_intent(body)
-        if intent_res:
-            risk_score += intent_res.get('severity', 0)
-            reasons.append(f"Keyword: {intent_res.get('reason')}")
+        # 1. Fast Keyword/Intent Check (Robust Regex)
+        keyword_score, keyword_reasons = self.intent_scanner.scan(clean_text)
+        if keyword_score > 0:
+            risk_score += keyword_score
+            reasons.extend(keyword_reasons)
 
         # 2. AI Model Check
         if self.use_ai and body:
@@ -47,6 +51,8 @@ class SemanticAgent(BaseAgent):
                 
                 def _run_ai_inference():
                     self._load_model()
+                    # Use original body for BERT to preserve rich features, 
+                    # but could switch to clean_text if obfuscation is a major ML issue.
                     inputs = self.tokenizer(body, return_tensors="pt", truncation=True, max_length=512)
                     with torch.no_grad():
                         outputs = self.model(**inputs)
@@ -68,17 +74,3 @@ class SemanticAgent(BaseAgent):
             "risk_score": min(risk_score, 100),
             "reasons": reasons
         }
-
-    def _infer_intent(self, text):
-        """Heuristic check for Urgency and BEC patterns."""
-        text = text.lower() if text else ""
-        urgency_words = ['urgent', 'immediate', '24 hours', 'suspend']
-        credential_words = ['password', 'login', 'verify account']
-        
-        if any(w in text for w in urgency_words):
-            return {"severity": 40, "reason": "Urgency Detected", "detail": "High urgency keywords"}
-        
-        if any(w in text for w in credential_words):
-            return {"severity": 40, "reason": "Credential Request", "detail": "Login keywords"}
-            
-        return None
