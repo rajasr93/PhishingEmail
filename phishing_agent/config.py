@@ -12,8 +12,8 @@ TOKEN_FILE = os.path.join(BASE_DIR, 'token.json')
 
 # --- Analysis Timeouts (Seconds) ---
 # Hard timeouts to prevent hangs during network analysis
-#DNS_TIMEOUT = 3.0
-#HTTP_TIMEOUT = 5.0
+DNS_TIMEOUT = 3.0
+HTTP_TIMEOUT = 5.0
 
 # --- Risk Thresholds ---
 #HIGH_RISK_THRESHOLD = 80
@@ -26,7 +26,7 @@ import logging
 import sys
 
 # v1 Requirement: Hard timeouts for analysis steps [cite: 102]
-TIMEOUT_DNS = 2  # seconds
+TIMEOUT_DNS = DNS_TIMEOUT  # Alias for compatibility
 TIMEOUT_ML = 1   # seconds
 
 def setup_logging():

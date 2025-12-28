@@ -26,7 +26,7 @@ class SemanticAgent(BaseAgent):
             self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
             self.logger.info("BERT model loaded.")
 
-    def analyze(self, email_data):
+    async def analyze(self, email_data):
         self.logger.info("SemanticAgent execution started.")
         risk_score = 0
         reasons = []
@@ -41,15 +41,20 @@ class SemanticAgent(BaseAgent):
         # 2. AI Model Check
         if self.use_ai and body:
             try:
-                self._load_model()
-                inputs = self.tokenizer(body, return_tensors="pt", truncation=True, max_length=512)
-                with torch.no_grad():
-                    outputs = self.model(**inputs)
+                # Run model loading and inference in executor to avoid blocking event loop
+                import asyncio
+                loop = asyncio.get_running_loop()
                 
-                # Assuming index 1 is phishing/malicious based on typical binary classification
-                # We need to verify the model's label map, but usually 1 = Phishing
-                probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
-                phishing_prob = probabilities[0][1].item()
+                def _run_ai_inference():
+                    self._load_model()
+                    inputs = self.tokenizer(body, return_tensors="pt", truncation=True, max_length=512)
+                    with torch.no_grad():
+                        outputs = self.model(**inputs)
+                    
+                    probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                    return probabilities[0][1].item()
+
+                phishing_prob = await loop.run_in_executor(None, _run_ai_inference)
                 
                 if phishing_prob > 0.75:
                     ai_score = int(phishing_prob * 100)

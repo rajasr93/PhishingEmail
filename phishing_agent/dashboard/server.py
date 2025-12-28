@@ -22,6 +22,24 @@ def serve_dashboard(port=8000, directory="dashboard"):
         def log_message(self, format, *args):
             pass
 
+        def do_POST(self):
+            if self.path == '/clear':
+                from processing.queue_manager import clear_db
+                from dashboard.renderer import render_dashboard
+                
+                # Clear the DB
+                clear_db()
+                
+                # Re-render an empty dashboard immediately
+                render_dashboard([])
+                
+                # Send response
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"OK")
+            else:
+                self.send_error(404)
+
     # Allow reuse of the port to prevent "Address already in use" errors
     socketserver.TCPServer.allow_reuse_address = True
 

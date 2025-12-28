@@ -7,7 +7,7 @@ class BaseAgent(ABC):
         self.logger = logger or logging.getLogger(name)
 
     @abstractmethod
-    def analyze(self, email_data):
+    async def analyze(self, email_data):
         """
         Analyzes the email_data and returns a result dict.
         Must raise NotImplementedError if not overridden.

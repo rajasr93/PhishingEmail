@@ -54,7 +54,23 @@ def render_dashboard(results, output_dir="dashboard"):
                     <div class="meta">Local Analysis Report</div>
                 </div>
                 <div class="meta">Generated: """ + timestamp + """</div>
+                <button onclick="clearHistory()" style="background:#b42318; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;">Clear History</button>
             </header>
+
+            <script>
+            function clearHistory() {
+                if(confirm("Are you sure you want to clear all validation history?")) {
+                    fetch('/clear', {method: 'POST'})
+                    .then(response => {
+                        if(response.ok) {
+                            window.location.reload();
+                        } else {
+                            alert("Failed to clear history");
+                        }
+                    });
+                }
+            }
+            </script>
             
             <!-- Legend / Methodology -->
             <div style="background:#f9fafb; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #eaecf0; color:#475467;">

@@ -39,49 +39,63 @@ def _parse_auth_header(auth_str):
 
 def worker():
     logger.info("Worker thread started. Polling JSON Queue for jobs...")
-    while running:
-        try:
-            # 1. Fetch next pending job (returns dictionary or None)
-            job = fetch_next_job() 
-            
-            if not job:
-                time.sleep(2)
-                continue
+    import asyncio
+    
+    async def async_worker_loop():
+        while running:
+            try:
+                # 1. Fetch next pending job (sync function, returns dictionary or None)
+                # fetch_next_job reads a file, so it blocks. 
+                # ideally we wrap it, but it's fast enough for now or we use run_in_executor
+                job = fetch_next_job() 
                 
-            email_id = job['id']
-            headers = job['headers']
-            body = job['body']
+                if not job:
+                    time.sleep(2)
+                    continue
+                    
+                email_id = job['id']
+                headers = job['headers']
+                body = job['body']
+    
+                logger.info(f"Worker picked up {email_id}...")
+                
+                # Ensure headers is a dict
+                if isinstance(headers, str):
+                    try:
+                        headers = json.loads(headers)
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to parse headers for {email_id}")
+                        headers = {}
+                
+                email_data = {
+                    "id": email_id,
+                    "headers": headers,
+                    "from": headers.get("From", "Unknown"),
+                    "subject": headers.get("Subject", "No Subject"),
+                    "reply_to": headers.get("Reply-To"),
+                    "body": body if body else "",
+                    "urls": extract_urls(body) if body else [],
+                    "auth_headers": _parse_auth_header(headers.get("Authentication-Results", ""))
+                }
+                
+                # 2. Analyze (ASYNC call)
+                update_job_status(email_id, "processing")
+                result = await analyzer.process_email(email_data)
+                
+                # Enhance result with display metadata
+                result['sender'] = email_data['from']
+                result['subject'] = email_data['subject']
+                
+                # 3. Save Result
+                update_job_status(email_id, "completed", result)
+                logger.info(f"Analysis Complete {email_id} => Score: {result['score']}")
+                
+            except Exception as e:
+                logger.error(f"Worker Error: {e}", exc_info=True)
+                time.sleep(2)
 
-            logger.info(f"Worker picked up {email_id}...")
-            
-            # headers is already a dict in our new JSON structure
-            
-            email_data = {
-                "id": email_id,
-                "headers": headers,
-                "from": headers.get("From", "Unknown"),
-                "subject": headers.get("Subject", "No Subject"),
-                "reply_to": headers.get("Reply-To"),
-                "body": body if body else "",
-                "urls": extract_urls(body) if body else [],
-                "auth_headers": _parse_auth_header(headers.get("Authentication-Results", ""))
-            }
-            
-            # 2. Analyze
-            update_job_status(email_id, "processing")
-            result = analyzer.process_email(email_data)
-            
-            # Enhance result with display metadata
-            result['sender'] = email_data['from']
-            result['subject'] = email_data['subject']
-            
-            # 3. Save Result
-            update_job_status(email_id, "completed", result)
-            logger.info(f"Analysis Complete {email_id} => Score: {result['score']}")
-            
-        except Exception as e:
-            logger.error(f"Worker Error: {e}", exc_info=True)
-            time.sleep(2)
+    # Run the async loop
+    asyncio.run(async_worker_loop())
 
 def ingestion_service():
     """Runs the real Gmail API ingestion every 30 seconds"""
