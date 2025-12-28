@@ -9,3 +9,5 @@ token.json
 .vscode/
 .idea/
 *.sqlite
+phishing_agent/env/
+phishing_agent/models/

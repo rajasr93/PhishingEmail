@@ -88,6 +88,12 @@ def update_job_status(job_id, status, analysis_result=None):
                 # Also set risk_score if available
                 if 'score' in analysis_result:
                     item['risk_score'] = analysis_result['score']
+            
+            # PRIVACY: Scrub raw content once processing is complete
+            if status == "completed":
+                item['body'] = None
+                item['headers'] = None
+
             updated = True
             break
     
@@ -110,6 +116,15 @@ def fetch_all_results():
     
     for item in queue:
         if item.get('status') == 'completed' and item.get('analysis_report'):
-             results.append(item['analysis_report'])
+             report = item['analysis_report']
+             # Ensure ID is present in the report object for the dashboard
+             if 'id' not in report:
+                 report['id'] = item['id']
+             results.append(report)
              
     return results
+
+def clear_db():
+    """Clears the queue database and resets it to an empty list."""
+    _write_queue([])
+    logger.info("Database cleared.")

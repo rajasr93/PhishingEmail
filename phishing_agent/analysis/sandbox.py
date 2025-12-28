@@ -14,7 +14,7 @@ def check_dns_redirects(url):
         try:
             socket.gethostbyname(domain)
         except socket.gaierror:
-            return {"severity": 20, "reason": "Unresolvable Domain", "detail": domain}
+            return {"severity": 30, "reason": "Unresolvable Domain", "detail": domain}
 
         # 2. HTTP Redirect Check
         try:
