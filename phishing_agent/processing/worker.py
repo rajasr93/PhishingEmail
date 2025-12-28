@@ -2,7 +2,7 @@ import time
 import json
 import logging
 from processing.queue_manager import fetch_next_job, mark_job_complete, update_status
-from analysis.pipeline import analyze_email_content
+from agents.orchestrator import Orchestrator
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [Worker] - %(message)s')
@@ -14,6 +14,9 @@ def run_worker():
     Fetches one email at a time from the persistent queue.
     """
     logger.info("Service started. Waiting for jobs...")
+    
+    # Initialize the Orchestrator ONCE before the while loop starts
+    orchestrator = Orchestrator(logger)
     
     while True:
         # 1. Fetch next PENDING job (Consumer)
@@ -38,7 +41,7 @@ def run_worker():
             }
 
             # 3. Execute Analysis Pipeline
-            report = analyze_email_content(email_data)
+            report = orchestrator.process_email(email_data)
             
             # 4. Save Results
             mark_job_complete(email_id, report['score'], report)

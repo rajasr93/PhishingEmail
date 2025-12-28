@@ -6,7 +6,7 @@ import signal
 import sys
 import json
 from config import setup_logging
-from core_logic import PhishingAnalyzer
+from agents.orchestrator import Orchestrator
 
 # Import Dashboard Modules
 from dashboard.renderer import render_dashboard
@@ -19,7 +19,7 @@ from analysis.structural import extract_urls
 
 # Initialize Logging
 logger = setup_logging()
-analyzer = PhishingAnalyzer(logger)
+analyzer = Orchestrator(logger)
 running = True
 
 def _parse_auth_header(auth_str):
@@ -69,7 +69,7 @@ def worker():
             
             # 2. Analyze
             update_job_status(email_id, "processing")
-            result = analyzer.analyze_email(email_data)
+            result = analyzer.process_email(email_data)
             
             # Enhance result with display metadata
             result['sender'] = email_data['from']
