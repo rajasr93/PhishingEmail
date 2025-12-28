@@ -14,12 +14,27 @@ def analyze_email_content(email_data):
     risks = []
     
     # 1. Header Analysis 
+    # v1 Update: Use dedicated AuthValidator
+    from auth_validator import AuthValidator
+    validator = AuthValidator()
+    auth_score, auth_reasons = validator.validate(email_data)
+    
+    if auth_score > 0:
+        for reason in auth_reasons:
+            risks.append({
+                "severity": auth_score, # Use the raw score from validator
+                "reason": "Authentication Failure",
+                "detail": reason
+            })
+    
+    # Also check other headers (Reply-To mismatch)
     header_risks = analyze_headers(email_data.get('headers', {}))
     if header_risks: 
         risks.extend(header_risks)
-        # Check for Early Exit
-        if any(r['severity'] >= HIGH_RISK_THRESHOLD for r in header_risks):
-            return _finalize_report(risks, start_time, "Early Exit: High Risk Header")
+
+    # Check for Early Exit
+    if any(r['severity'] >= HIGH_RISK_THRESHOLD for r in risks):
+        return _finalize_report(risks, start_time, "Early Exit: High Risk Header")
 
     # 2. Structural & URL Analysis [cite: 48]
     body_content = email_data.get('body', "")

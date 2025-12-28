@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.log
+database/
+phishing_agent/credentials.json
+phishing_agent/token.json
+credentials.json
+token.json
+.vscode/
+.idea/
+*.sqlite

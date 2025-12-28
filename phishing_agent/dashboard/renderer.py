@@ -59,14 +59,16 @@ def render_dashboard(results, output_dir="dashboard"):
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 15%">Email ID</th>
+                        <th style="width: 25%">Subject</th>
+                        <th style="width: 20%">Sender</th> <!-- New Column -->
                         <th style="width: 10%">Verdict</th>
                         <th style="width: 10%">Score</th>
-                        <th style="width: 65%">Risk Factors</th>
+                        <th style="width: 45%">Risk Factors</th>
                     </tr>
                 </thead>
                 <tbody>
-                    </tbody>
+                    <!--ROWS_PLACEHOLDER-->
+                </tbody>
             </table>
         </div>
     </body>
@@ -86,17 +88,27 @@ def render_dashboard(results, output_dir="dashboard"):
             reasons_html = "<ul>" + "".join([f"<li>{r}</li>" for r in res['reasons']]) + "</ul>"
         else:
             reasons_html = "<span style='color:#98a2b3; font-size:13px;'>No specific risks detected</span>"
+        
+        # Handle missing sender if old result
+        sender = res.get('sender', 'Unknown')
+
+        # Extract Subject from headers if available, or fallback
+        subject = res.get('subject', 'No Subject')
+        
+        # Format Date/ID for tooltip
+        email_id = res['id']
 
         rows += f"""
         <tr>
-            <td><strong>{res['id']}</strong></td>
+            <td><strong>{subject}</strong></td>
+            <td>{sender}</td>
             <td><span class="badge {res['verdict']}">{res['verdict']}</span></td>
             <td class="{score_class}">{res['score']}/100</td>
             <td>{reasons_html}</td>
         </tr>
         """
 
-    final_html = html_template.replace("", rows)
+    final_html = html_template.replace("<!--ROWS_PLACEHOLDER-->", rows)
     
     # Save the file
     output_path = os.path.join(output_dir, "report.html")

@@ -1,76 +1,115 @@
-import sqlite3
 import json
-import time
 import os
-from enum import Enum
-from config import DB_PATH
+import time
+import logging
+from datetime import datetime
 
-class TaskStatus(Enum):
-    PENDING = "PENDING"
-    ANALYZING = "ANALYZING"
-    DONE = "DONE"
-    FAILED = "FAILED"
+QUEUE_FILE = "database/queue.json"
+logger = logging.getLogger("QueueManager")
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS email_queue (
-            id TEXT PRIMARY KEY,
-            headers TEXT,
-            body TEXT,
-            status TEXT DEFAULT 'PENDING',
-            risk_score INTEGER DEFAULT 0,
-            analysis_report TEXT,
-            created_at REAL,
-            updated_at REAL
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    """Initializes the JSON queue file if it doesn't exist."""
+    os.makedirs(os.path.dirname(QUEUE_FILE), exist_ok=True)
+    if not os.path.exists(QUEUE_FILE):
+        with open(QUEUE_FILE, 'w') as f:
+            json.dump([], f, indent=4)
+        logger.info(f"Initialized new queue file at {QUEUE_FILE}")
+
+def _read_queue():
+    try:
+        with open(QUEUE_FILE, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+def _write_queue(data):
+    with open(QUEUE_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
 
 def push_email_to_queue(email_id, headers, body):
-    """Producer: Adds email to queue [cite: 13, 92]"""
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        conn.execute(
-            "INSERT INTO email_queue (id, headers, body, status, created_at) VALUES (?, ?, ?, ?, ?)",
-            (email_id, json.dumps(headers), body, TaskStatus.PENDING.value, time.time())
-        )
-        print(f"[Queue] Email {email_id} added.")
-    except sqlite3.IntegrityError:
-        print(f"[Queue] Email {email_id} already exists.")
-    finally:
-        conn.close()
+    """
+    Pushes an email to the JSON queue if it doesn't already exist.
+    """
+    queue = _read_queue()
+    
+    # Check for duplicates
+    for item in queue:
+        if item.get('id') == email_id:
+            logger.debug(f"[Queue] Email {email_id} already exists. Skipping.")
+            return
+
+    # Add new item
+    # Note: validation assumes headers is a dict not a string, but the previous code passed json.dumps(headers).
+    # We should clean this up. Main.py/Ingestion passes real dicts now?
+    # Actually ingestion passes a dict to headers argument.
+    # We will store it as a dict in JSON for readability.
+    
+    new_item = {
+        "id": email_id,
+        "headers": headers,
+        "body": body if body else "(No Body Content)",
+        "status": "pending",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": None,
+        "analysis_report": None
+    }
+
+    queue.append(new_item)
+    _write_queue(queue)
+    logger.info(f"[Queue] Email {email_id} added to JSON.")
 
 def fetch_next_job():
-    """Consumer: Fetches oldest PENDING job"""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT id, headers, body FROM email_queue WHERE status='PENDING' ORDER BY created_at ASC LIMIT 1")
-        row = cur.fetchone()
-        if row:
-            conn.execute("UPDATE email_queue SET status=?, updated_at=? WHERE id=?", 
-                         (TaskStatus.ANALYZING.value, time.time(), row[0]))
-            conn.commit()
-            return row
-    finally:
-        conn.close()
+    """
+    Returns the first email with status='pending'.
+    Returns a dict with 'id', 'headers', 'body'.
+    """
+    queue = _read_queue()
+    for item in queue:
+        if item.get('status') == 'pending':
+            return {
+                "id": item['id'],
+                "headers": item['headers'], # Ensure this matches what worker expects
+                "body": item['body']
+            }
     return None
 
-def mark_job_complete(email_id, risk_score, report):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "UPDATE email_queue SET status=?, risk_score=?, analysis_report=?, updated_at=? WHERE id=?",
-        (TaskStatus.DONE.value, risk_score, json.dumps(report), time.time(), email_id)
-    )
-    conn.commit()
-    conn.close()
+def update_job_status(job_id, status, analysis_result=None):
+    """
+    Updates the status and result of a job.
+    """
+    queue = _read_queue()
+    updated = False
+    for item in queue:
+        if item.get('id') == job_id:
+            item['status'] = status
+            item['updated_at'] = datetime.now().isoformat()
+            if analysis_result:
+                item['analysis_report'] = analysis_result
+                # Also set risk_score if available
+                if 'score' in analysis_result:
+                    item['risk_score'] = analysis_result['score']
+            updated = True
+            break
+    
+    if updated:
+        _write_queue(queue)
+    else:
+        logger.warning(f"[Queue] Could not find job {job_id} to update.")
 
-def update_status(email_id, status):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("UPDATE email_queue SET status=?, updated_at=? WHERE id=?", (status, time.time(), email_id))
-    conn.commit()
-    conn.close()
+def fetch_all_results():
+    """
+    Returns all items that have a completed analysis_report, sorted by created_at desc.
+    Returns list of analysis_report dicts (legacy format support)
+    """
+    queue = _read_queue()
+    results = []
+    
+    # Sort by created_at descending (newest first)
+    # created_at is ISO string
+    queue.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    
+    for item in queue:
+        if item.get('status') == 'completed' and item.get('analysis_report'):
+             results.append(item['analysis_report'])
+             
+    return results

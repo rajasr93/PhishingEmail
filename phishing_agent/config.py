@@ -1,9 +1,14 @@
 import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- Runtime Constraints (v1) ---
 # Enforces serialized execution to prevent CPU exhaustion
 #MAX_WORKERS = 1                 
-#DB_PATH = os.path.join("database", "queue_db.sqlite")
+DB_PATH = os.path.join("database", "queue_db.sqlite")
+
+# Gmail API Configuration
+CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
+TOKEN_FILE = os.path.join(BASE_DIR, 'token.json')
 
 # --- Analysis Timeouts (Seconds) ---
 # Hard timeouts to prevent hangs during network analysis
@@ -33,7 +38,8 @@ def setup_logging():
         level=logging.INFO, # Change to DEBUG for even more detail
         format="%(asctime)s - [%(levelname)s] - [%(threadName)s] - %(message)s",
         handlers=[
-            logging.StreamHandler(sys.stdout) # Ensure output goes to console immediately
+            logging.StreamHandler(sys.stdout), # Ensure output goes to console immediately
+            logging.FileHandler("agent.log", mode='a', encoding='utf-8')
         ]
     )
     return logging.getLogger("PhishingAgent")

@@ -61,9 +61,12 @@ class PhishingAnalyzer:
         
         result = {
             "id": email_id,
+            "sender": email_data.get('from', 'Unknown'), # Add Sender
+            "verdict": final_verdict,
             "verdict": final_verdict,
             "score": risk_score,
-            "reasons": reasons
+            "reasons": reasons,
+            "subject": email_data.get('subject', 'No Subject')
         }
         
         return result
