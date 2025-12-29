@@ -19,11 +19,26 @@ class GmailIngestor:
         self.logger = logging.getLogger("PhishingAgent")
         self.creds = None
         self.service = None
+        self.logger.info("Ingestion Service Started.")
 
     def authenticate(self):
         """
         Handles OAuth 2.0 authentication flow.
         """
+        # Pre-check for credentials file before attempting authentication
+        if not os.path.exists(config.CREDENTIALS_FILE):
+            error_msg = f"Credentials file not found at: {config.CREDENTIALS_FILE}"
+            self.logger.critical(error_msg)
+            self.logger.critical("You MUST download OAuth Client ID JSON from Google Cloud and save it as credentials.json")
+            # Implement blocking behavior as requested, but within the method.
+            # This will prevent the application from proceeding without credentials.
+            while True:
+                self.logger.error("MISSING CREDENTIALS. Please place 'credentials.json' in the phishing_agent folder.")
+                time.sleep(60)
+            # The loop above makes the following return unreachable, but included for completeness
+            # if the blocking behavior were to be removed later.
+            return False
+
         try:
             # The file token.json stores the user's access and refresh tokens.
             if os.path.exists(config.TOKEN_FILE):

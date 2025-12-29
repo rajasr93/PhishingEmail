@@ -21,25 +21,38 @@ class Orchestrator:
         tech_task = self.technical_agent.analyze(email_data)
         sem_task = self.semantic_agent.analyze(email_data)
 
-        results = await asyncio.gather(tech_task, sem_task)
+        results = await asyncio.gather(tech_task, sem_task, return_exceptions=True)
         tech_result = results[0]
         sem_result = results[1]
 
         # 1. Process Technical Results
-        final_reasons.extend(tech_result['reasons'])
-        tech_score = tech_result['risk_score']
-        final_score = max(final_score, tech_score)
+        if isinstance(tech_result, dict):
+            final_reasons.extend(tech_result.get('reasons', []))
+            tech_score = tech_result.get('risk_score', 0)
+            final_score = max(final_score, tech_score)
+        else:
+            self.logger.error(f"TechnicalAgent failed: {tech_result}")
+            final_reasons.append("Error: Technical Analysis Failed")
+            tech_score = 0
 
         # 2. Process Semantic Results
-        final_reasons.extend(sem_result['reasons'])
-        sem_score = sem_result['risk_score']
+        if isinstance(sem_result, dict):
+            final_reasons.extend(sem_result.get('reasons', []))
+            sem_score = sem_result.get('risk_score', 0)
+        else:
+            self.logger.error(f"SemanticAgent failed: {sem_result}")
+            final_reasons.append("Error: Semantic Analysis Failed")
+            sem_score = 0
         
         # Additive Logic: Sum scores to reflect cumulative risk
         final_score = min(tech_score + sem_score, 100)
 
         # 3. Worst-Link Logic (Cross-Correlated Elevation)
-        has_auth_fail = any("Validation Failed" in r or "Signature Invalid" in r or "Policy Violation" in r for r in tech_result['reasons'])
-        has_urgency = any("Urgency Detected" in r for r in sem_result['reasons'])
+        tech_reasons = tech_result.get('reasons', []) if isinstance(tech_result, dict) else []
+        sem_reasons = sem_result.get('reasons', []) if isinstance(sem_result, dict) else []
+        
+        has_auth_fail = any("Validation Failed" in r or "Signature Invalid" in r or "Policy Violation" in r for r in tech_reasons)
+        has_urgency = any("Urgency Detected" in r for r in sem_reasons)
         
         if has_auth_fail and has_urgency:
             if final_score < 85:

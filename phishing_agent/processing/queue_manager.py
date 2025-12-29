@@ -15,6 +15,26 @@ def init_db():
             json.dump([], f, indent=4)
         logger.info(f"Initialized new queue file at {QUEUE_FILE}")
 
+def reset_stuck_jobs():
+    """
+    Resets any jobs that are stuck in 'processing' state back to 'pending'.
+    This covers cases where the agent crashed mid-analysis.
+    """
+    queue = _read_queue()
+    reset_count = 0
+    
+    for item in queue:
+        if item.get('status') == 'processing':
+            item['status'] = 'pending'
+            item['updated_at'] = datetime.now().isoformat()
+            reset_count += 1
+            logger.warning(f"[Queue] Reset stuck job {item.get('id')} to pending.")
+            
+    if reset_count > 0:
+        _write_queue(queue)
+        logger.info(f"Reset {reset_count} stuck jobs.")
+
+
 def _read_queue():
     try:
         with open(QUEUE_FILE, 'r') as f:
@@ -73,6 +93,8 @@ def fetch_next_job():
             }
     return None
 
+    return None
+
 def update_job_status(job_id, status, analysis_result=None):
     """
     Updates the status and result of a job.
@@ -92,7 +114,8 @@ def update_job_status(job_id, status, analysis_result=None):
             # PRIVACY: Scrub raw content once processing is complete
             if status == "completed":
                 item['body'] = None
-                item['headers'] = None
+                # We KEEP headers now for dashboard display (Subject, Date, Sender)
+                # item['headers'] = None 
 
             updated = True
             break
@@ -102,25 +125,39 @@ def update_job_status(job_id, status, analysis_result=None):
     else:
         logger.warning(f"[Queue] Could not find job {job_id} to update.")
 
+def parse_email_date(date_str):
+    """Parses email date header to datetime object."""
+    from email.utils import parsedate_to_datetime
+    try:
+        if not date_str: return datetime.min
+        return parsedate_to_datetime(date_str)
+    except Exception:
+        return datetime.min
+
 def fetch_all_results():
     """
-    Returns all items that have a completed analysis_report, sorted by created_at desc.
-    Returns list of analysis_report dicts (legacy format support)
+    Returns all items that have a completed analysis_report, sorted by EMAIL DATE desc.
+    Returns list of analysis_report dicts.
     """
     queue = _read_queue()
     results = []
     
-    # Sort by created_at descending (newest first)
-    # created_at is ISO string
-    queue.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-    
     for item in queue:
         if item.get('status') == 'completed' and item.get('analysis_report'):
              report = item['analysis_report']
-             # Ensure ID is present in the report object for the dashboard
-             if 'id' not in report:
-                 report['id'] = item['id']
+             
+             # Enrich report with metadata from headers for dashboard
+             headers = item.get('headers', {})
+             if headers:
+                 if 'id' not in report: report['id'] = item['id']
+                 if 'subject' not in report: report['subject'] = headers.get('Subject', 'No Subject')
+                 if 'sender' not in report: report['sender'] = headers.get('From', 'Unknown')
+                 if 'date' not in report: report['date'] = headers.get('Date', '')
+             
              results.append(report)
+    
+    # Sort by Email Date descending (Newest emails at top)
+    results.sort(key=lambda x: parse_email_date(x.get('date')), reverse=True)
              
     return results
 

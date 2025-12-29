@@ -4,11 +4,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # --- Runtime Constraints (v1) ---
 # Enforces serialized execution to prevent CPU exhaustion
 #MAX_WORKERS = 1                 
-DB_PATH = os.path.join("database", "queue_db.sqlite")
 
-# Gmail API Configuration
-CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
-TOKEN_FILE = os.path.join(BASE_DIR, 'token.json')
+# Data Paths (Relative to BASE_DIR)
+CREDENTIALS_FILE = os.path.join(BASE_DIR, "credentials.json")
+TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
+DB_PATH = os.path.join(BASE_DIR, "database", "queue.json")
+
+# Model Paths
+BERT_MODEL_PATH = os.path.join(BASE_DIR, "models", "phishing-bert")
 
 # --- Analysis Timeouts (Seconds) ---
 # Hard timeouts to prevent hangs during network analysis

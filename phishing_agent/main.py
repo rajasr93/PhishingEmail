@@ -57,10 +57,19 @@ def ingestion_service():
 
 def main():
     global running
+    
+    # 0. Pre-Flight Check
+    if not os.path.exists(CREDENTIALS_FILE):
+        print_setup_banner()
+        logger.error(f"Missing {CREDENTIALS_FILE}. Exiting.")
+        return
+
     logger.info("System Initializing (v1 Production - JSON Mode)...")
     
     # 1. Initialize DB (JSON File)
     init_db()
+    from processing.queue_manager import reset_stuck_jobs
+    reset_stuck_jobs()
 
     # 2. Start Analysis Worker
     worker_thread = threading.Thread(target=worker_thread_wrapper, name="Worker-1", daemon=True)

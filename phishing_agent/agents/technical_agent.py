@@ -13,7 +13,9 @@ class TechnicalAgent(BaseAgent):
         reasons = []
 
         # 1. Header Analysis (Reply-To Mismatch)
-        reply_to_score, reply_to_reasons = self._check_reply_to(email_data.get('headers', {}))
+        headers = email_data.get('headers')
+        if headers is None: headers = {}
+        reply_to_score, reply_to_reasons = self._check_reply_to(headers)
         if reply_to_score > 0:
             risk_score += reply_to_score
             reasons.extend(reply_to_reasons)
@@ -32,13 +34,51 @@ class TechnicalAgent(BaseAgent):
         import asyncio
         loop = asyncio.get_running_loop()
 
+        applied_penalties = set()
+
         for url in urls:
             # Wrap blocking network call in executor
             sandbox_res = await loop.run_in_executor(None, check_dns_redirects, url)
             
             if sandbox_res:
-                risk_score += sandbox_res.get('severity', 0)
-                reasons.append(f"URL: {sandbox_res.get('reason')} ({sandbox_res.get('detail')})")
+                # Phase 2: Source-Destination Consistency Check
+                is_safe_redirect = False
+                reason_key = sandbox_res.get('reason')
+
+                if "Excessive Redirects" in reason_key:
+                    final_url = sandbox_res.get('final_url')
+                    sender_email = email_data.get('headers', {}).get('From', '')
+                    
+                    if final_url and sender_email:
+                        sender_domain = self._get_domain_from_email(sender_email)
+                        final_domain = self._get_domain_from_url(final_url)
+                        
+                        if sender_domain and final_domain:
+                            if final_domain == sender_domain or final_domain.endswith("." + sender_domain):
+                                is_safe_redirect = True
+                                self.logger.info(f"Consistency Check Passed: {sender_domain} -> {final_domain}")
+
+                if not is_safe_redirect:
+                    # Phase 3: Penalty Deduplication
+                    # Only apply penalty once per risk type (reason)
+                    if reason_key not in applied_penalties:
+                        risk_score += sandbox_res.get('severity', 0)
+                        applied_penalties.add(reason_key)
+                    
+                    # Always append reason for visibility, but maybe dedupe text too?
+                    # User asked for deduplication of PENALTY (score).
+                    # But usually dashboard clutter is bad too.
+                    # "URL: Unresolvable Domain (...)".
+                    # If I have 10, maybe I should list them all but score once?
+                    # Or verify dashboard? Dashboard lists All reasons.
+                    # The prompt said "Deduplicate Penalties: ... max 1 penalty per type"
+                    # It implied score cap.
+                    # But "if an email has 10 links ... 10x penalty"
+                    # I will dedupe reasons too to keep UI clean.
+                    if reason_key in applied_penalties and len([r for r in reasons if reason_key in r]) > 0:
+                        continue # Skip adding duplicate reason text
+                    
+                    reasons.append(f"URL: {sandbox_res.get('reason')} ({sandbox_res.get('detail')})")
 
         # Cap score at 100
         risk_score = min(risk_score, 100)
@@ -118,3 +158,18 @@ class TechnicalAgent(BaseAgent):
                 reasons.append(f"Reply-To Mismatch (From: {from_addr})")
                 
         return score, reasons
+
+    def _get_domain_from_email(self, email_str):
+        """Extracts domain from 'Name <email@domain.com>'"""
+        import re
+        match = re.search(r"@([\w.-]+)", email_str)
+        if match:
+            return match.group(1).lower()
+        return ""
+
+    def _get_domain_from_url(self, url):
+        import urllib.parse
+        try:
+            return urllib.parse.urlparse(url).netloc.lower()
+        except:
+            return ""
