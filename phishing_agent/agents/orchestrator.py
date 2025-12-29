@@ -44,6 +44,20 @@ class Orchestrator:
             final_reasons.append("Error: Semantic Analysis Failed")
             sem_score = 0
         
+        # 2. Semantic Trust Override (False Positive Reduction)
+        # If Technical Analysis is CLEAN (Score < 10) AND Auth passed (implied by low score),
+        # we Trust the Sender and suppress wild AI hallucinations (e.g., "Order Confirmation" = Phishing).
+        if tech_score < 10:
+             if sem_score > 50:
+                 # Downgrade AI score significantly but keep it visible as a 'Warning'
+                 # or completely zero it out.
+                 # Let's Cap it at 0 to ensure verdict is SAFE.
+                 # Log only if we are overriding a high score
+                 reasons = sem_result.get('reasons', [])
+                 reasons.append(f"(AI Risk {sem_score}% Suppressed by Trusted Sender)")
+                 sem_result['reasons'] = reasons # Update reasons
+                 sem_score = 0
+        
         # Additive Logic: Sum scores to reflect cumulative risk
         final_score = min(tech_score + sem_score, 100)
 
