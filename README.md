@@ -2,7 +2,7 @@
 
 An intelligent, local-first AI agent that connects to your Gmail, analyzes emails for phishing risks, and provides a clear security dashboard. It combines heuristic analysis (technical checks) with semantic analysis (AI/BERT) to detect sophisticated threats.
 
-![Dashboard Preview](dashboard_preview.png)
+
 
 ## 🚀 Features
 
