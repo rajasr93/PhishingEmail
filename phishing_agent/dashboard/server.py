@@ -23,6 +23,21 @@ def serve_dashboard(port=8000, directory="dashboard"):
             pass
 
         def do_POST(self):
+            # CSRF Protection: Verify Origin/Referer is local
+            request_origin = self.headers.get('Origin')
+            request_referer = self.headers.get('Referer')
+            
+            # Simple check: We strictly expect interactions from the local dashboard
+            is_valid_source = False
+            if request_origin and "localhost" in request_origin:
+                is_valid_source = True
+            elif request_referer and "localhost" in request_referer:
+                is_valid_source = True
+                
+            if not is_valid_source:
+                self.send_error(403, "Forbidden: CSRF Check Failed")
+                return
+
             if self.path == '/clear':
                 from processing.queue_manager import clear_db
                 from dashboard.renderer import render_dashboard
@@ -50,7 +65,8 @@ def serve_dashboard(port=8000, directory="dashboard"):
     socketserver.TCPServer.allow_reuse_address = True
 
     try:
-        with socketserver.TCPServer(("", port), Handler) as httpd:
+        # Security Fix: Bind only to localhost to prevent network exposure
+        with socketserver.TCPServer(("localhost", port), Handler) as httpd:
             url = f"http://localhost:{port}/report.html"
             logger.info("---")
             logger.info(f"🚀 Dashboard is live at: {url}")

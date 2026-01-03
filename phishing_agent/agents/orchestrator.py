@@ -42,14 +42,10 @@ class Orchestrator:
             sem_score = 0
             sem_reasons_list = ["Error: Semantic Analysis Failed"]
 
-        # 2. Semantic Trust Override (False Positive Reduction)
-        if tech_score < 10:
-             if sem_score > 50:
-                 # Override: Trust the Sender because technical auth passed perfectly.
-                 # User Request: Replace explanation with silent "No threats" (Empty list)
-                 sem_reasons_list = [r for r in sem_reasons_list if "AI: High Phishing Probability" not in r]
-                 
-                 sem_score = 0
+        # 2. Semantic Trust Override (REMOVED due to Security Audit)
+        # Previously trusted sender if tech_score < 10, but this ignores compromised accounts.
+        # Logic removed to respect High Phishing Probability from AI.
+
         
         # 3. Aggregate Final Reasons
         final_reasons.extend(tech_reasons_list)

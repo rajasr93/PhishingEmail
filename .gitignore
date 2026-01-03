@@ -11,3 +11,6 @@ token.json
 *.sqlite
 phishing_agent/env/
 phishing_agent/models/
+env
+phishing_agent/dashboard/report.html
+
