@@ -11,7 +11,7 @@ TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
 DB_PATH = os.path.join(BASE_DIR, "database", "queue.json")
 
 # Model Paths
-BERT_MODEL_PATH = os.path.join(BASE_DIR, "models", "phishing-bert")
+BERT_MODEL_PATH = os.path.join(BASE_DIR, "models", "bert_phishing")
 
 # --- Analysis Timeouts (Seconds) ---
 # Hard timeouts to prevent hangs during network analysis
@@ -19,11 +19,9 @@ DNS_TIMEOUT = 3.0
 HTTP_TIMEOUT = 5.0
 
 # --- Risk Thresholds ---
-#HIGH_RISK_THRESHOLD = 80
-#MEDIUM_RISK_THRESHOLD = 50
-
-# --- Feature Flags ---
-#ENABLE_HEADLESS_BROWSER = False
+HIGH_RISK_THRESHOLD = 70  # Score above this is PHISHING
+MEDIUM_RISK_THRESHOLD = 40 # Score above this is SUSPICIOUS
+# Not yet implemented
 # config.py
 import logging
 import sys

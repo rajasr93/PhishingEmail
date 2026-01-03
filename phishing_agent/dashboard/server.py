@@ -40,6 +40,12 @@ def serve_dashboard(port=8000, directory="dashboard"):
             else:
                 self.send_error(404)
 
+        def end_headers(self):
+            self.send_header('Content-Security-Policy', "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-Frame-Options', 'DENY')
+            super().end_headers()
+
     # Allow reuse of the port to prevent "Address already in use" errors
     socketserver.TCPServer.allow_reuse_address = True
 

@@ -25,38 +25,37 @@ class Orchestrator:
         tech_result = results[0]
         sem_result = results[1]
 
-        # 1. Process Technical Results
+        # 1. Unpack Results
         if isinstance(tech_result, dict):
-            final_reasons.extend(tech_result.get('reasons', []))
             tech_score = tech_result.get('risk_score', 0)
-            final_score = max(final_score, tech_score)
+            tech_reasons_list = tech_result.get('reasons', [])
         else:
             self.logger.error(f"TechnicalAgent failed: {tech_result}")
-            final_reasons.append("Error: Technical Analysis Failed")
             tech_score = 0
+            tech_reasons_list = ["Error: Technical Analysis Failed"]
 
-        # 2. Process Semantic Results
         if isinstance(sem_result, dict):
-            final_reasons.extend(sem_result.get('reasons', []))
             sem_score = sem_result.get('risk_score', 0)
+            sem_reasons_list = sem_result.get('reasons', [])
         else:
             self.logger.error(f"SemanticAgent failed: {sem_result}")
-            final_reasons.append("Error: Semantic Analysis Failed")
             sem_score = 0
-        
+            sem_reasons_list = ["Error: Semantic Analysis Failed"]
+
         # 2. Semantic Trust Override (False Positive Reduction)
-        # If Technical Analysis is CLEAN (Score < 10) AND Auth passed (implied by low score),
-        # we Trust the Sender and suppress wild AI hallucinations (e.g., "Order Confirmation" = Phishing).
         if tech_score < 10:
              if sem_score > 50:
-                 # Downgrade AI score significantly but keep it visible as a 'Warning'
-                 # or completely zero it out.
-                 # Let's Cap it at 0 to ensure verdict is SAFE.
-                 # Log only if we are overriding a high score
-                 reasons = sem_result.get('reasons', [])
-                 reasons.append(f"(AI Risk {sem_score}% Suppressed by Trusted Sender)")
-                 sem_result['reasons'] = reasons # Update reasons
+                 # Override: Trust the Sender because technical auth passed perfectly.
+                 # User Request: Replace explanation with silent "No threats" (Empty list)
+                 sem_reasons_list = [r for r in sem_reasons_list if "AI: High Phishing Probability" not in r]
+                 
                  sem_score = 0
+        
+        # 3. Aggregate Final Reasons
+        final_reasons.extend(tech_reasons_list)
+        final_reasons.extend(sem_reasons_list)
+        
+        final_score = max(final_score, tech_score)
         
         # Additive Logic: Sum scores to reflect cumulative risk
         final_score = min(tech_score + sem_score, 100)
@@ -73,11 +72,13 @@ class Orchestrator:
                 final_score = 85
                 final_reasons.insert(0, "CRITICAL: Auth Failure + High Urgency Detected")
 
+        import config
+        
         # 4. Determine Verdict
         verdict = "SAFE"
-        if final_score >= 70:
+        if final_score >= config.HIGH_RISK_THRESHOLD:
             verdict = "PHISHING"
-        elif final_score >= 40:
+        elif final_score >= config.MEDIUM_RISK_THRESHOLD:
             verdict = "SUSPICIOUS"
 
         return {

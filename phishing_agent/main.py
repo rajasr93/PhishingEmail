@@ -44,17 +44,18 @@ def worker_thread_wrapper():
 def ingestion_service():
     """Runs the real Gmail API ingestion every 30 seconds"""
     ingestor = GmailIngestor()
-    try:
-        if not ingestor.authenticate():
-            logger.critical("Ingestion authentication failed. Exiting ingestion thread.")
-            return
+    if not ingestor.authenticate():
+        logger.critical("Ingestion authentication failed. Exiting ingestion thread.")
+        return
 
-        while running:
+    while running:
+        try:
             logger.info("Ingestion: Checking for new emails...")
             ingestor.fetch_emails(lookback_limit=10)
-            time.sleep(30) # Poll interval
-    except Exception as e:
-        logger.error(f"Ingestion Error: {e}")
+        except Exception as e:
+            logger.error(f"Ingestion Worker Error: {e}")
+        
+        time.sleep(30)  # Poll interval
 
 def main():
     global running
@@ -104,6 +105,13 @@ def main():
         
     worker_thread.join(timeout=2)
     ingestor_thread.join(timeout=2)
+    
+    # 5. Cleanup on Shutdown (Wipe Data)
+    logger.info("Cleaning up session data...")
+    from processing.queue_manager import clear_db
+    clear_db()
+    render_dashboard([]) # Wipe the HTML file
+    
     logger.info("System Shutdown.")
 
 if __name__ == "__main__":

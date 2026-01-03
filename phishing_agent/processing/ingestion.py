@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from .queue_manager import push_email_to_queue
+from utils.backoff import exponential_backoff
 import config
 
 # If modifying these scopes, delete the file token.json.
@@ -72,6 +73,7 @@ class GmailIngestor:
             self.logger.error(f"Authentication Failed: {e}", exc_info=True)
             return False
 
+    @exponential_backoff()
     def fetch_emails(self, lookback_limit=10):
         """
         Fetches UNSEEN emails using Gmail API query `q='is:unread'`.

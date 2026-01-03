@@ -12,7 +12,8 @@ def download_model():
     print("Model downloaded and cached successfully.")
     
     # Save to a specific local directory
-    local_path = "./models/bert_phishing"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    local_path = os.path.join(base_dir, "models", "bert_phishing")
     tokenizer.save_pretrained(local_path)
     model.save_pretrained(local_path)
     print(f"Model saved to {local_path}")

@@ -17,8 +17,10 @@ class SemanticAgent(BaseAgent):
             from transformers import AutoTokenizer, AutoModelForSequenceClassification
             import os
             
-            # Check for local model first
-            local_path = "./models/bert_phishing"
+            # Check for local model first (Robust Pathing)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # phishing_agent/
+            local_path = os.path.join(base_dir, "models", "bert_phishing")
+            
             if os.path.exists(local_path):
                  self.model_name = local_path
                  self.logger.info(f"Using local model at {local_path}")
